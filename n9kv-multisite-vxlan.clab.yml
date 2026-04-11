@@ -1,0 +1,119 @@
+name: n9kv-multisite-vxlan
+
+# Multi-Site VXLAN/EVPN Lab
+# Site 1 (AS 65001): spine1, bgw1, leaf1, leaf2
+# Site 2 (AS 65002): spine2, bgw2, leaf3, leaf4
+# DCI: bgw1:eth2 <-> bgw2:eth2
+
+topology:
+  defaults:
+    kind: cisco_n9kv
+    image: vrnetlab/vr-n9kv:9.3.13
+
+  nodes:
+    # ---- Site 1 ----
+    spine1:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/spine1.cfg
+      mgmt-ipv4: 172.100.100.11
+
+    bgw1:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/bgw1.cfg
+      mgmt-ipv4: 172.100.100.12
+
+    leaf1:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/leaf1.cfg
+      mgmt-ipv4: 172.100.100.13
+
+    leaf2:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/leaf2.cfg
+      mgmt-ipv4: 172.100.100.14
+
+    # ---- Site 2 ----
+    spine2:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/spine2.cfg
+      mgmt-ipv4: 172.100.100.21
+
+    bgw2:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/bgw2.cfg
+      mgmt-ipv4: 172.100.100.22
+
+    leaf3:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/leaf3.cfg
+      mgmt-ipv4: 172.100.100.23
+
+    leaf4:
+      kind: cisco_n9kv
+      image: vrnetlab/vr-n9kv:9.3.13
+      startup-config: configs/leaf4.cfg
+      mgmt-ipv4: 172.100.100.24
+
+    # ---- Servers ----
+    server1:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      mgmt-ipv4: 172.100.100.31
+      exec:
+        - bash /config/server1.sh
+      binds:
+        - configs/server1.sh:/config/server1.sh
+
+    server2:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      mgmt-ipv4: 172.100.100.32
+      exec:
+        - bash /config/server2.sh
+      binds:
+        - configs/server2.sh:/config/server2.sh
+
+    server3:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      mgmt-ipv4: 172.100.100.33
+      exec:
+        - bash /config/server3.sh
+      binds:
+        - configs/server3.sh:/config/server3.sh
+
+    server4:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      mgmt-ipv4: 172.100.100.34
+      exec:
+        - bash /config/server4.sh
+      binds:
+        - configs/server4.sh:/config/server4.sh
+
+  links:
+    # ---- Site 1 Underlay ----
+    - endpoints: ["spine1:eth1", "bgw1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf1:eth1"]
+    - endpoints: ["spine1:eth3", "leaf2:eth1"]
+
+    # ---- Site 2 Underlay ----
+    - endpoints: ["spine2:eth1", "bgw2:eth1"]
+    - endpoints: ["spine2:eth2", "leaf3:eth1"]
+    - endpoints: ["spine2:eth3", "leaf4:eth1"]
+
+    # ---- DCI (Inter-Site) ----
+    - endpoints: ["bgw1:eth2", "bgw2:eth2"]
+
+    # ---- Server Access ----
+    - endpoints: ["leaf1:eth10", "server1:eth1"]
+    - endpoints: ["leaf2:eth10", "server2:eth1"]
+    - endpoints: ["leaf3:eth10", "server3:eth1"]
+    - endpoints: ["leaf4:eth10", "server4:eth1"]
