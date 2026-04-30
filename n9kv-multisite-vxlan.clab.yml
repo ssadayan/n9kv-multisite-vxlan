@@ -16,7 +16,7 @@
 # Overlay:  iBGP EVPN — BGWs are RRs, leaves are RR clients
 #           eBGP EVPN between BGW pairs across DCI
 #
-# Image: vrnetlab/cisco_n9kv:9500v64-10.5.5.M
+# Image: vrnetlab/cisco_n9kv:9300v-9.3.16
 # Resources: 4 vCPU + 10GB RAM per node × 8 nodes = ~80GB RAM required
 
 name: multisite-vxlan
@@ -24,7 +24,7 @@ name: multisite-vxlan
 topology:
   kinds:
     cisco_n9kv:
-      image: vrnetlab/cisco_n9kv:9500v64-10.5.5.M
+      image: vrnetlab/cisco_n9kv:9300v-9.3.16
     linux:
       image: ghcr.io/hellt/network-multitool
 
