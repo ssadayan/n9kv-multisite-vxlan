@@ -1,23 +1,23 @@
-# VXLAN EVPN Multisite Lab - Cisco Nexus 9000v
+# VXLAN EVPN Multisite Lab - Cisco Nexus 9000v (Spineless)
 #
 # Topology:
-#   Site 1 (AS 65001, Site-ID 1): s1-spine1, s1-spine2, s1-leaf1, s1-leaf2, s1-bgw1, s1-bgw2
-#   Site 2 (AS 65002, Site-ID 2): s2-spine1, s2-spine2, s2-leaf1, s2-leaf2, s2-bgw1, s2-bgw2
+#   Site 1 (AS 65001, Site-ID 1): s1-leaf1, s1-leaf2, s1-bgw1, s1-bgw2
+#   Site 2 (AS 65002, Site-ID 2): s2-leaf1, s2-leaf2, s2-bgw1, s2-bgw2
 #   DCI: s1-bgw1:eth5 <-> s2-bgw1:eth5 (172.16.0.0/30)
 #        s1-bgw2:eth5 <-> s2-bgw2:eth5 (172.16.1.0/30)
+#
+# BGWs act as EVPN Route Reflectors for leaves (no spine layer)
+# Each leaf connects directly to both BGWs (dual uplinks)
 #
 # Stretched L2 VNI:
 #   VLAN 10 / VNI 100010 / subnet 192.168.10.0/24 (stretched across both sites)
 #
 # Underlay: OSPF (process UNDERLAY, area 0)
-# Overlay:  iBGP EVPN with spine Route Reflectors per site
-#           eBGP EVPN between BGWs (multisite border gateways)
+# Overlay:  iBGP EVPN — BGWs are RRs, leaves are RR clients
+#           eBGP EVPN between BGW pairs across DCI
 #
 # Image: vrnetlab/cisco_n9kv:9500v64-10.5.5.M
-#   Build: git clone https://github.com/srl-labs/vrnetlab /tmp/vrnetlab
-#          cp nexus9500v64.10.5.5.M.qcow2 /tmp/vrnetlab/cisco/n9kv/n9kv-9500v64-10.5.5.M.qcow2
-#          cd /tmp/vrnetlab/cisco/n9kv && make docker-image
-# Resources: 4 vCPU + 10GB RAM per node × 12 nodes = ~120GB RAM required
+# Resources: 4 vCPU + 10GB RAM per node × 8 nodes = ~80GB RAM required
 
 name: multisite-vxlan
 
@@ -32,14 +32,6 @@ topology:
     # =========================================================
     # SITE 1
     # =========================================================
-    s1-spine1:
-      kind: cisco_n9kv
-      startup-config: configs/s1-spine1.cfg
-
-    s1-spine2:
-      kind: cisco_n9kv
-      startup-config: configs/s1-spine2.cfg
-
     s1-leaf1:
       kind: cisco_n9kv
       startup-config: configs/s1-leaf1.cfg
@@ -71,14 +63,6 @@ topology:
     # =========================================================
     # SITE 2
     # =========================================================
-    s2-spine1:
-      kind: cisco_n9kv
-      startup-config: configs/s2-spine1.cfg
-
-    s2-spine2:
-      kind: cisco_n9kv
-      startup-config: configs/s2-spine2.cfg
-
     s2-leaf1:
       kind: cisco_n9kv
       startup-config: configs/s2-leaf1.cfg
@@ -109,36 +93,24 @@ topology:
 
   links:
     # =========================================================
-    # SITE 1 FABRIC  (eth1=Eth1/1, eth2=Eth1/2, eth3=Eth1/3, eth4=Eth1/4)
+    # SITE 1 — Leaf-to-BGW direct links (no spine)
     # =========================================================
-    # Spine1 downlinks
-    - endpoints: ["s1-spine1:eth1", "s1-leaf1:eth1"]
-    - endpoints: ["s1-spine1:eth2", "s1-leaf2:eth1"]
-    - endpoints: ["s1-spine1:eth3", "s1-bgw1:eth1"]
-    - endpoints: ["s1-spine1:eth4", "s1-bgw2:eth1"]
-    # Spine2 downlinks
-    - endpoints: ["s1-spine2:eth1", "s1-leaf1:eth2"]
-    - endpoints: ["s1-spine2:eth2", "s1-leaf2:eth2"]
-    - endpoints: ["s1-spine2:eth3", "s1-bgw1:eth2"]
-    - endpoints: ["s1-spine2:eth4", "s1-bgw2:eth2"]
-    # Server access links (eth10=Eth1/10)
+    - endpoints: ["s1-bgw1:eth1", "s1-leaf1:eth1"]
+    - endpoints: ["s1-bgw1:eth2", "s1-leaf2:eth1"]
+    - endpoints: ["s1-bgw2:eth1", "s1-leaf1:eth2"]
+    - endpoints: ["s1-bgw2:eth2", "s1-leaf2:eth2"]
+    # Server access
     - endpoints: ["s1-leaf1:eth10", "srv1:eth1"]
     - endpoints: ["s1-leaf2:eth10", "srv2:eth1"]
 
     # =========================================================
-    # SITE 2 FABRIC
+    # SITE 2 — Leaf-to-BGW direct links (no spine)
     # =========================================================
-    # Spine1 downlinks
-    - endpoints: ["s2-spine1:eth1", "s2-leaf1:eth1"]
-    - endpoints: ["s2-spine1:eth2", "s2-leaf2:eth1"]
-    - endpoints: ["s2-spine1:eth3", "s2-bgw1:eth1"]
-    - endpoints: ["s2-spine1:eth4", "s2-bgw2:eth1"]
-    # Spine2 downlinks
-    - endpoints: ["s2-spine2:eth1", "s2-leaf1:eth2"]
-    - endpoints: ["s2-spine2:eth2", "s2-leaf2:eth2"]
-    - endpoints: ["s2-spine2:eth3", "s2-bgw1:eth2"]
-    - endpoints: ["s2-spine2:eth4", "s2-bgw2:eth2"]
-    # Server access links
+    - endpoints: ["s2-bgw1:eth1", "s2-leaf1:eth1"]
+    - endpoints: ["s2-bgw1:eth2", "s2-leaf2:eth1"]
+    - endpoints: ["s2-bgw2:eth1", "s2-leaf1:eth2"]
+    - endpoints: ["s2-bgw2:eth2", "s2-leaf2:eth2"]
+    # Server access
     - endpoints: ["s2-leaf1:eth10", "srv3:eth1"]
     - endpoints: ["s2-leaf2:eth10", "srv4:eth1"]
 
