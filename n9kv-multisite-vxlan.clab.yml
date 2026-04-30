@@ -91,6 +91,18 @@ topology:
         - ip addr add 192.168.10.4/24 dev eth1
         - ip link set eth1 up
 
+    srv5:
+      kind: linux
+      exec:
+        - ip addr add 192.168.10.5/24 dev eth1
+        - ip link set eth1 up
+
+    srv6:
+      kind: linux
+      exec:
+        - ip addr add 192.168.10.6/24 dev eth1
+        - ip link set eth1 up
+
   links:
     # =========================================================
     # SITE 1 — Leaf-to-BGW direct links (no spine)
@@ -101,6 +113,7 @@ topology:
     - endpoints: ["s1-bgw2:eth2", "s1-leaf2:eth2"]
     # Server access
     - endpoints: ["s1-leaf1:eth10", "srv1:eth1"]
+    - endpoints: ["s1-leaf1:eth11", "srv5:eth1"]
     - endpoints: ["s1-leaf2:eth10", "srv2:eth1"]
 
     # =========================================================
@@ -112,6 +125,7 @@ topology:
     - endpoints: ["s2-bgw2:eth2", "s2-leaf2:eth2"]
     # Server access
     - endpoints: ["s2-leaf1:eth10", "srv3:eth1"]
+    - endpoints: ["s2-leaf1:eth11", "srv6:eth1"]
     - endpoints: ["s2-leaf2:eth10", "srv4:eth1"]
 
     # =========================================================
