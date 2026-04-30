@@ -1,119 +1,149 @@
-name: n9kv-multisite-vxlan
+# VXLAN EVPN Multisite Lab - Cisco Nexus 9000v
+#
+# Topology:
+#   Site 1 (AS 65001, Site-ID 1): s1-spine1, s1-spine2, s1-leaf1, s1-leaf2, s1-bgw1, s1-bgw2
+#   Site 2 (AS 65002, Site-ID 2): s2-spine1, s2-spine2, s2-leaf1, s2-leaf2, s2-bgw1, s2-bgw2
+#   DCI: s1-bgw1:eth5 <-> s2-bgw1:eth5 (172.16.0.0/30)
+#        s1-bgw2:eth5 <-> s2-bgw2:eth5 (172.16.1.0/30)
+#
+# Stretched L2 VNI:
+#   VLAN 10 / VNI 100010 / subnet 192.168.10.0/24 (stretched across both sites)
+#
+# Underlay: OSPF (process UNDERLAY, area 0)
+# Overlay:  iBGP EVPN with spine Route Reflectors per site
+#           eBGP EVPN between BGWs (multisite border gateways)
+#
+# Image: vrnetlab/cisco_n9kv:9500v64-10.5.5.M
+#   Build: git clone https://github.com/srl-labs/vrnetlab /tmp/vrnetlab
+#          cp nexus9500v64.10.5.5.M.qcow2 /tmp/vrnetlab/cisco/n9kv/n9kv-9500v64-10.5.5.M.qcow2
+#          cd /tmp/vrnetlab/cisco/n9kv && make docker-image
+# Resources: 4 vCPU + 10GB RAM per node × 12 nodes = ~120GB RAM required
 
-# Multi-Site VXLAN/EVPN Lab
-# Site 1 (AS 65001): spine1, bgw1, leaf1, leaf2
-# Site 2 (AS 65002): spine2, bgw2, leaf3, leaf4
-# DCI: bgw1:eth2 <-> bgw2:eth2
+name: multisite-vxlan
 
 topology:
-  defaults:
-    kind: cisco_n9kv
-    image: vrnetlab/vr-n9kv:9.3.13
+  kinds:
+    cisco_n9kv:
+      image: vrnetlab/cisco_n9kv:9500v64-10.5.5.M
+    linux:
+      image: ghcr.io/hellt/network-multitool
 
   nodes:
-    # ---- Site 1 ----
-    spine1:
+    # =========================================================
+    # SITE 1
+    # =========================================================
+    s1-spine1:
       kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/spine1.cfg
-      mgmt-ipv4: 172.100.100.11
+      startup-config: configs/s1-spine1.cfg
 
-    bgw1:
+    s1-spine2:
       kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/bgw1.cfg
-      mgmt-ipv4: 172.100.100.12
+      startup-config: configs/s1-spine2.cfg
 
-    leaf1:
+    s1-leaf1:
       kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/leaf1.cfg
-      mgmt-ipv4: 172.100.100.13
+      startup-config: configs/s1-leaf1.cfg
 
-    leaf2:
+    s1-leaf2:
       kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/leaf2.cfg
-      mgmt-ipv4: 172.100.100.14
+      startup-config: configs/s1-leaf2.cfg
 
-    # ---- Site 2 ----
-    spine2:
+    s1-bgw1:
       kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/spine2.cfg
-      mgmt-ipv4: 172.100.100.21
+      startup-config: configs/s1-bgw1.cfg
 
-    bgw2:
+    s1-bgw2:
       kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/bgw2.cfg
-      mgmt-ipv4: 172.100.100.22
+      startup-config: configs/s1-bgw2.cfg
 
-    leaf3:
-      kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/leaf3.cfg
-      mgmt-ipv4: 172.100.100.23
-
-    leaf4:
-      kind: cisco_n9kv
-      image: vrnetlab/vr-n9kv:9.3.13
-      startup-config: configs/leaf4.cfg
-      mgmt-ipv4: 172.100.100.24
-
-    # ---- Servers ----
-    server1:
+    srv1:
       kind: linux
-      image: ghcr.io/hellt/network-multitool
-      mgmt-ipv4: 172.100.100.31
       exec:
-        - bash /config/server1.sh
-      binds:
-        - configs/server1.sh:/config/server1.sh
+        - ip addr add 192.168.10.1/24 dev eth1
+        - ip link set eth1 up
 
-    server2:
+    srv2:
       kind: linux
-      image: ghcr.io/hellt/network-multitool
-      mgmt-ipv4: 172.100.100.32
       exec:
-        - bash /config/server2.sh
-      binds:
-        - configs/server2.sh:/config/server2.sh
+        - ip addr add 192.168.10.2/24 dev eth1
+        - ip link set eth1 up
 
-    server3:
-      kind: linux
-      image: ghcr.io/hellt/network-multitool
-      mgmt-ipv4: 172.100.100.33
-      exec:
-        - bash /config/server3.sh
-      binds:
-        - configs/server3.sh:/config/server3.sh
+    # =========================================================
+    # SITE 2
+    # =========================================================
+    s2-spine1:
+      kind: cisco_n9kv
+      startup-config: configs/s2-spine1.cfg
 
-    server4:
+    s2-spine2:
+      kind: cisco_n9kv
+      startup-config: configs/s2-spine2.cfg
+
+    s2-leaf1:
+      kind: cisco_n9kv
+      startup-config: configs/s2-leaf1.cfg
+
+    s2-leaf2:
+      kind: cisco_n9kv
+      startup-config: configs/s2-leaf2.cfg
+
+    s2-bgw1:
+      kind: cisco_n9kv
+      startup-config: configs/s2-bgw1.cfg
+
+    s2-bgw2:
+      kind: cisco_n9kv
+      startup-config: configs/s2-bgw2.cfg
+
+    srv3:
       kind: linux
-      image: ghcr.io/hellt/network-multitool
-      mgmt-ipv4: 172.100.100.34
       exec:
-        - bash /config/server4.sh
-      binds:
-        - configs/server4.sh:/config/server4.sh
+        - ip addr add 192.168.10.3/24 dev eth1
+        - ip link set eth1 up
+
+    srv4:
+      kind: linux
+      exec:
+        - ip addr add 192.168.10.4/24 dev eth1
+        - ip link set eth1 up
 
   links:
-    # ---- Site 1 Underlay ----
-    - endpoints: ["spine1:eth1", "bgw1:eth1"]
-    - endpoints: ["spine1:eth2", "leaf1:eth1"]
-    - endpoints: ["spine1:eth3", "leaf2:eth1"]
+    # =========================================================
+    # SITE 1 FABRIC  (eth1=Eth1/1, eth2=Eth1/2, eth3=Eth1/3, eth4=Eth1/4)
+    # =========================================================
+    # Spine1 downlinks
+    - endpoints: ["s1-spine1:eth1", "s1-leaf1:eth1"]
+    - endpoints: ["s1-spine1:eth2", "s1-leaf2:eth1"]
+    - endpoints: ["s1-spine1:eth3", "s1-bgw1:eth1"]
+    - endpoints: ["s1-spine1:eth4", "s1-bgw2:eth1"]
+    # Spine2 downlinks
+    - endpoints: ["s1-spine2:eth1", "s1-leaf1:eth2"]
+    - endpoints: ["s1-spine2:eth2", "s1-leaf2:eth2"]
+    - endpoints: ["s1-spine2:eth3", "s1-bgw1:eth2"]
+    - endpoints: ["s1-spine2:eth4", "s1-bgw2:eth2"]
+    # Server access links (eth10=Eth1/10)
+    - endpoints: ["s1-leaf1:eth10", "srv1:eth1"]
+    - endpoints: ["s1-leaf2:eth10", "srv2:eth1"]
 
-    # ---- Site 2 Underlay ----
-    - endpoints: ["spine2:eth1", "bgw2:eth1"]
-    - endpoints: ["spine2:eth2", "leaf3:eth1"]
-    - endpoints: ["spine2:eth3", "leaf4:eth1"]
+    # =========================================================
+    # SITE 2 FABRIC
+    # =========================================================
+    # Spine1 downlinks
+    - endpoints: ["s2-spine1:eth1", "s2-leaf1:eth1"]
+    - endpoints: ["s2-spine1:eth2", "s2-leaf2:eth1"]
+    - endpoints: ["s2-spine1:eth3", "s2-bgw1:eth1"]
+    - endpoints: ["s2-spine1:eth4", "s2-bgw2:eth1"]
+    # Spine2 downlinks
+    - endpoints: ["s2-spine2:eth1", "s2-leaf1:eth2"]
+    - endpoints: ["s2-spine2:eth2", "s2-leaf2:eth2"]
+    - endpoints: ["s2-spine2:eth3", "s2-bgw1:eth2"]
+    - endpoints: ["s2-spine2:eth4", "s2-bgw2:eth2"]
+    # Server access links
+    - endpoints: ["s2-leaf1:eth10", "srv3:eth1"]
+    - endpoints: ["s2-leaf2:eth10", "srv4:eth1"]
 
-    # ---- DCI (Inter-Site) ----
-    - endpoints: ["bgw1:eth2", "bgw2:eth2"]
-
-    # ---- Server Access ----
-    - endpoints: ["leaf1:eth10", "server1:eth1"]
-    - endpoints: ["leaf2:eth10", "server2:eth1"]
-    - endpoints: ["leaf3:eth10", "server3:eth1"]
-    - endpoints: ["leaf4:eth10", "server4:eth1"]
+    # =========================================================
+    # DCI — Data Center Interconnect (eth5=Eth1/5)
+    # =========================================================
+    - endpoints: ["s1-bgw1:eth5", "s2-bgw1:eth5"]
+    - endpoints: ["s1-bgw2:eth5", "s2-bgw2:eth5"]
