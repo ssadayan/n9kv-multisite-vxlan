@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VXLAN EVPN Multisite — Topology Diagram</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #080e1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'JetBrains Mono', 'Fira Mono', monospace;
+  }
+  h1 {
+    color: #e2e8f0;
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+    font-weight: 400;
+  }
+  h1 span { color: #00c9a7; }
+  .diagram-wrap {
+    width: min(98vw, 1420px);
+    aspect-ratio: 1420 / 760;
+  }
+  svg { width: 100%; height: 100%; display: block; }
+
+  /* Node styles */
+  .node-bgw  { fill: #0d1f2d; stroke: #f97316; stroke-width: 1.8; }
+  .node-leaf { fill: #0d1f2d; stroke: #00c9a7; stroke-width: 1.8; }
+  .node-srv  { fill: #0a1a14; stroke: #22c55e;  stroke-width: 1.5; }
+  .node-bgw-s2  { fill: #0d1f2d; stroke: #f97316; stroke-width: 1.8; }
+  .node-leaf-s2 { fill: #0d1f2d; stroke: #0ea5e9; stroke-width: 1.8; }
+
+  /* Node glow filters */
+  .glow-orange { filter: url(#glow-orange); }
+  .glow-teal   { filter: url(#glow-teal);   }
+  .glow-blue   { filter: url(#glow-blue);   }
+  .glow-green  { filter: url(#glow-green);  }
+
+  /* Link styles */
+  .link-fabric-s1 { stroke: #00c9a7; stroke-width: 1.6; stroke-opacity: 0.55; fill: none; }
+  .link-fabric-s2 { stroke: #0ea5e9; stroke-width: 1.6; stroke-opacity: 0.55; fill: none; }
+  .link-server    { stroke: #22c55e;  stroke-width: 1.2; stroke-opacity: 0.5;  fill: none; stroke-dasharray: 5,3; }
+  .link-dci       { stroke: #f97316; stroke-width: 2.2; stroke-opacity: 0.85; fill: none; }
+  .link-dci-2     { stroke: #f97316; stroke-width: 2.2; stroke-opacity: 0.6;  fill: none; stroke-dasharray: 8,4; }
+
+  /* Text */
+  .lbl-node  { fill: #e2e8f0; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+  .lbl-role  { fill: #7fa8c9; font-size: 8.5px; text-anchor: middle; dominant-baseline: middle; }
+  .lbl-link  { fill: #4a6a80; font-size: 8px;   text-anchor: middle; dominant-baseline: middle; }
+  .lbl-dci   { fill: #f97316; font-size: 8.5px; text-anchor: middle; dominant-baseline: middle; font-weight: 700; }
+  .lbl-site  { fill: #00c9a7; font-size: 13px;  font-weight: 700; letter-spacing: 0.1em; }
+  .lbl-site2 { fill: #0ea5e9; font-size: 13px;  font-weight: 700; letter-spacing: 0.1em; }
+  .lbl-as    { fill: #3d5a7a; font-size: 10px; }
+  .lbl-ip    { fill: #3d6a5a; font-size: 7.5px; text-anchor: middle; }
+  .lbl-ip-orange { fill: #c2541a; font-size: 7.5px; text-anchor: middle; }
+</style>
+</head>
+<body>
+<h1>VXLAN EVPN <span>Multisite</span> — Spineless Topology</h1>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 1420 760" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <!-- Glow filters -->
+  <filter id="glow-orange" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="4" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <feColorMatrix type="matrix" values="3 0 0 0 0  1 0.4 0 0 0  0 0 0 0 0  0 0 0 1 0"/>
+  </filter>
+  <filter id="glow-teal" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="3.5" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glow-blue" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="3.5" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glow-green" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="2.5" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <!-- Grid pattern -->
+  <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+    <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(0,201,167,0.04)" stroke-width="1"/>
+  </pattern>
+  <!-- Arrowhead for DCI -->
+  <marker id="arrow-dci" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L8,3 z" fill="#f97316" opacity="0.8"/>
+  </marker>
+</defs>
+
+<!-- Grid background -->
+<rect width="1420" height="760" fill="url(#grid)"/>
+
+<!-- ══════════════════════════════════════════
+     SITE BOUNDARY BOXES
+══════════════════════════════════════════ -->
+<!-- Site 1 boundary -->
+<rect x="30" y="70" width="570" height="620"
+      fill="rgba(0,201,167,0.02)" stroke="rgba(0,201,167,0.18)"
+      stroke-width="1.5" rx="12" stroke-dasharray="8,5"/>
+<!-- Site 2 boundary -->
+<rect x="820" y="70" width="570" height="620"
+      fill="rgba(14,165,233,0.02)" stroke="rgba(14,165,233,0.18)"
+      stroke-width="1.5" rx="12" stroke-dasharray="8,5"/>
+<!-- DCI zone -->
+<rect x="600" y="130" width="220" height="200"
+      fill="rgba(249,115,22,0.03)" stroke="rgba(249,115,22,0.12)"
+      stroke-width="1" rx="8" stroke-dasharray="4,4"/>
+
+<!-- Site labels -->
+<text x="55" y="105" class="lbl-site">◈ SITE 1</text>
+<text x="105" y="105" class="lbl-as">  AS 65001</text>
+<text x="845" y="105" class="lbl-site2">◈ SITE 2</text>
+<text x="895" y="105" class="lbl-as">  AS 65002</text>
+<text x="710" y="155" class="lbl-dci" text-anchor="middle">DCI</text>
+<text x="710" y="169" fill="#c2541a" font-size="8" text-anchor="middle">Border</text>
+
+<!-- ══════════════════════════════════════════
+     FABRIC LINKS — SITE 1
+══════════════════════════════════════════ -->
+<!-- s1-bgw1 (cx=180) → s1-leaf1 (cx=150) -->
+<line class="link-fabric-s1" x1="170" y1="232" x2="155" y2="338"/>
+<text x="145" y="290" class="lbl-ip" transform="rotate(-5,145,290)">eth1↔eth1</text>
+
+<!-- s1-bgw1 (cx=180) → s1-leaf2 (cx=420) -->
+<line class="link-fabric-s1" x1="200" y1="232" x2="400" y2="338"/>
+<text x="305" y="278" class="lbl-ip" transform="rotate(-18,305,278)">eth2↔eth1</text>
+
+<!-- s1-bgw2 (cx=460) → s1-leaf1 (cx=150) -->
+<line class="link-fabric-s1" x1="440" y1="232" x2="170" y2="338"/>
+<text x="298" y="292" class="lbl-ip" transform="rotate(18,298,292)">eth1↔eth2</text>
+
+<!-- s1-bgw2 (cx=460) → s1-leaf2 (cx=420) -->
+<line class="link-fabric-s1" x1="450" y1="232" x2="435" y2="338"/>
+<text x="460" y="290" class="lbl-ip" transform="rotate(5,460,290)">eth2↔eth2</text>
+
+<!-- ══════════════════════════════════════════
+     SERVER LINKS — SITE 1
+══════════════════════════════════════════ -->
+<!-- s1-leaf1 → srv1 -->
+<line class="link-server" x1="130" y1="378" x2="100" y2="498"/>
+<text x="105" y="440" class="lbl-ip" transform="rotate(-10,105,440)">eth10</text>
+<!-- s1-leaf1 → srv5 -->
+<line class="link-server" x1="160" y1="378" x2="200" y2="498"/>
+<text x="192" y="438" class="lbl-ip" transform="rotate(10,192,438)">eth11</text>
+<!-- s1-leaf2 → srv2 -->
+<line class="link-server" x1="420" y1="378" x2="415" y2="498"/>
+<text x="435" y="440" class="lbl-ip">eth10</text>
+
+<!-- ══════════════════════════════════════════
+     FABRIC LINKS — SITE 2
+══════════════════════════════════════════ -->
+<!-- s2-bgw1 (cx=970) → s2-leaf1 (cx=1000) -->
+<line class="link-fabric-s2" x1="980" y1="232" x2="995" y2="338"/>
+<text x="965" y="290" class="lbl-ip" transform="rotate(-5,965,290)">eth1↔eth1</text>
+
+<!-- s2-bgw1 → s2-leaf2 (cx=1250) -->
+<line class="link-fabric-s2" x1="1000" y1="232" x2="1230" y2="338"/>
+<text x="1120" y="278" class="lbl-ip" transform="rotate(-18,1120,278)">eth2↔eth1</text>
+
+<!-- s2-bgw2 (cx=1260) → s2-leaf1 (cx=1000) -->
+<line class="link-fabric-s2" x1="1240" y1="232" x2="1030" y2="338"/>
+<text x="1128" y="294" class="lbl-ip" transform="rotate(18,1128,294)">eth1↔eth2</text>
+
+<!-- s2-bgw2 → s2-leaf2 -->
+<line class="link-fabric-s2" x1="1250" y1="232" x2="1255" y2="338"/>
+<text x="1275" y="290" class="lbl-ip" transform="rotate(5,1275,290)">eth2↔eth2</text>
+
+<!-- ══════════════════════════════════════════
+     SERVER LINKS — SITE 2
+══════════════════════════════════════════ -->
+<!-- s2-leaf1 → srv3 -->
+<line class="link-server" x1="975" y1="378" x2="950" y2="498"/>
+<text x="945" y="440" class="lbl-ip" transform="rotate(-6,945,440)">eth10</text>
+<!-- s2-leaf1 → srv6 -->
+<line class="link-server" x1="1010" y1="378" x2="1060" y2="498"/>
+<text x="1048" y="438" class="lbl-ip" transform="rotate(10,1048,438)">eth11</text>
+<!-- s2-leaf2 → srv4 -->
+<line class="link-server" x1="1250" y1="378" x2="1250" y2="498"/>
+<text x="1272" y="440" class="lbl-ip">eth10</text>
+
+<!-- ══════════════════════════════════════════
+     DCI LINKS
+══════════════════════════════════════════ -->
+<!-- DCI-1: s1-bgw1 (180,195) → s2-bgw1 (970,195) -->
+<path class="link-dci" d="M 240,190 C 500,160 720,160 900,190"
+      marker-end="url(#arrow-dci)"/>
+<text x="570" y="158" class="lbl-dci">DCI-1 — 172.16.0.0/30</text>
+<text x="570" y="170" fill="#7a3800" font-size="7.5" text-anchor="middle">bgw1:eth5 ↔ bgw1:eth5</text>
+
+<!-- DCI-2: s1-bgw2 (460,195) → s2-bgw2 (1260,195) -->
+<path class="link-dci-2" d="M 520,208 C 680,240 740,240 900,208"
+      marker-end="url(#arrow-dci)"/>
+<text x="710" y="252" class="lbl-dci" text-anchor="middle">DCI-2</text>
+<text x="710" y="264" class="lbl-ip-orange" text-anchor="middle">172.16.1.0/30</text>
+
+<!-- ══════════════════════════════════════════
+     NODES — SITE 1
+══════════════════════════════════════════ -->
+
+<!-- s1-bgw1 -->
+<g class="glow-orange">
+  <rect x="110" y="170" width="140" height="50" rx="7" class="node-bgw"/>
+</g>
+<text x="180" y="192" class="lbl-node">s1-bgw1</text>
+<text x="180" y="207" class="lbl-role" fill="#f97316">BGW · RR · AS65001</text>
+
+<!-- s1-bgw2 -->
+<g class="glow-orange">
+  <rect x="390" y="170" width="140" height="50" rx="7" class="node-bgw"/>
+</g>
+<text x="460" y="192" class="lbl-node">s1-bgw2</text>
+<text x="460" y="207" class="lbl-role" fill="#f97316">BGW · RR · AS65001</text>
+
+<!-- s1-leaf1 -->
+<g class="glow-teal">
+  <rect x="90" y="338" width="130" height="46" rx="7" class="node-leaf"/>
+</g>
+<text x="155" y="357" class="lbl-node">s1-leaf1</text>
+<text x="155" y="372" class="lbl-role" fill="#00c9a7">VTEP · NVE1</text>
+
+<!-- s1-leaf2 -->
+<g class="glow-teal">
+  <rect x="360" y="338" width="130" height="46" rx="7" class="node-leaf"/>
+</g>
+<text x="425" y="357" class="lbl-node">s1-leaf2</text>
+<text x="425" y="372" class="lbl-role" fill="#00c9a7">VTEP · NVE1</text>
+
+<!-- srv1 -->
+<g class="glow-green">
+  <rect x="58" y="498" width="88" height="38" rx="5" class="node-srv"/>
+</g>
+<text x="102" y="514" class="lbl-node" fill="#22c55e">srv1</text>
+<text x="102" y="527" class="lbl-ip">192.168.10.1</text>
+
+<!-- srv5 -->
+<g class="glow-green">
+  <rect x="163" y="498" width="88" height="38" rx="5" class="node-srv"/>
+</g>
+<text x="207" y="514" class="lbl-node" fill="#22c55e">srv5</text>
+<text x="207" y="527" class="lbl-ip">192.168.10.5</text>
+
+<!-- srv2 -->
+<g class="glow-green">
+  <rect x="375" y="498" width="88" height="38" rx="5" class="node-srv"/>
+</g>
+<text x="419" y="514" class="lbl-node" fill="#22c55e">srv2</text>
+<text x="419" y="527" class="lbl-ip">192.168.10.2</text>
+
+<!-- ══════════════════════════════════════════
+     NODES — SITE 2
+══════════════════════════════════════════ -->
+
+<!-- s2-bgw1 -->
+<g class="glow-orange">
+  <rect x="900" y="170" width="140" height="50" rx="7" class="node-bgw-s2"/>
+</g>
+<text x="970" y="192" class="lbl-node">s2-bgw1</text>
+<text x="970" y="207" class="lbl-role" fill="#f97316">BGW · RR · AS65002</text>
+
+<!-- s2-bgw2 -->
+<g class="glow-orange">
+  <rect x="1180" y="170" width="140" height="50" rx="7" class="node-bgw-s2"/>
+</g>
+<text x="1250" y="192" class="lbl-node">s2-bgw2</text>
+<text x="1250" y="207" class="lbl-role" fill="#f97316">BGW · RR · AS65002</text>
+
+<!-- s2-leaf1 -->
+<g class="glow-blue">
+  <rect x="940" y="338" width="130" height="46" rx="7" class="node-leaf-s2"/>
+</g>
+<text x="1005" y="357" class="lbl-node">s2-leaf1</text>
+<text x="1005" y="372" class="lbl-role" fill="#0ea5e9">VTEP · NVE1</text>
+
+<!-- s2-leaf2 -->
+<g class="glow-blue">
+  <rect x="1185" y="338" width="130" height="46" rx="7" class="node-leaf-s2"/>
+</g>
+<text x="1250" y="357" class="lbl-node">s2-leaf2</text>
+<text x="1250" y="372" class="lbl-role" fill="#0ea5e9">VTEP · NVE1</text>
+
+<!-- srv3 -->
+<g class="glow-green">
+  <rect x="905" y="498" width="88" height="38" rx="5" class="node-srv"/>
+</g>
+<text x="949" y="514" class="lbl-node" fill="#22c55e">srv3</text>
+<text x="949" y="527" class="lbl-ip">192.168.10.3</text>
+
+<!-- srv6 -->
+<g class="glow-green">
+  <rect x="1015" y="498" width="88" height="38" rx="5" class="node-srv"/>
+</g>
+<text x="1059" y="514" class="lbl-node" fill="#22c55e">srv6</text>
+<text x="1059" y="527" class="lbl-ip">192.168.10.6</text>
+
+<!-- srv4 -->
+<g class="glow-green">
+  <rect x="1205" y="498" width="88" height="38" rx="5" class="node-srv"/>
+</g>
+<text x="1249" y="514" class="lbl-node" fill="#22c55e">srv4</text>
+<text x="1249" y="527" class="lbl-ip">192.168.10.4</text>
+
+<!-- ══════════════════════════════════════════
+     LEGEND
+══════════════════════════════════════════ -->
+<rect x="530" y="590" width="360" height="140" rx="8"
+      fill="rgba(13,25,45,0.95)" stroke="rgba(0,201,167,0.2)" stroke-width="1"/>
+<text x="710" y="614" fill="#e2e8f0" font-size="10" font-weight="700" text-anchor="middle" letter-spacing="0.1em">LEGEND</text>
+
+<rect x="550" y="625" width="22" height="14" rx="3" fill="#0d1f2d" stroke="#f97316" stroke-width="1.5"/>
+<text x="582" y="636" fill="#f97316" font-size="9">BGW + Route Reflector</text>
+
+<rect x="550" y="648" width="22" height="14" rx="3" fill="#0d1f2d" stroke="#00c9a7" stroke-width="1.5"/>
+<text x="582" y="659" fill="#00c9a7" font-size="9">Leaf / VTEP (Site 1)</text>
+
+<rect x="550" y="671" width="22" height="14" rx="3" fill="#0d1f2d" stroke="#0ea5e9" stroke-width="1.5"/>
+<text x="582" y="682" fill="#0ea5e9" font-size="9">Leaf / VTEP (Site 2)</text>
+
+<rect x="550" y="694" width="22" height="14" rx="3" fill="#0a1a14" stroke="#22c55e" stroke-width="1.5"/>
+<text x="582" y="705" fill="#22c55e" font-size="9">Linux Server</text>
+
+<line x1="720" y1="632" x2="760" y2="632" stroke="#f97316" stroke-width="2.2"/>
+<text x="770" y="636" fill="#f97316" font-size="9">DCI Link (primary)</text>
+<line x1="720" y1="655" x2="760" y2="655" stroke="#f97316" stroke-width="2" stroke-dasharray="5,3"/>
+<text x="770" y="659" fill="#f97316" font-size="9">DCI Link (secondary)</text>
+<line x1="720" y1="678" x2="760" y2="678" stroke="#00c9a7" stroke-width="1.6" stroke-opacity="0.7"/>
+<text x="770" y="682" fill="#7fa8c9" font-size="9">Fabric Link</text>
+<line x1="720" y1="701" x2="760" y2="701" stroke="#22c55e" stroke-width="1.2" stroke-dasharray="4,3"/>
+<text x="770" y="705" fill="#7fa8c9" font-size="9">Server Access</text>
+
+<!-- ══════════════════════════════════════════
+     STRETCHED VNI BANNER
+══════════════════════════════════════════ -->
+<rect x="30" y="700" width="490" height="28" rx="5"
+      fill="rgba(0,201,167,0.05)" stroke="rgba(0,201,167,0.2)" stroke-width="1"/>
+<text x="275" y="718" fill="#00c9a7" font-size="9" text-anchor="middle">
+  Stretched L2: VLAN 10 / VNI 100010 / RT 1:100010 / Subnet 192.168.10.0/24
+</text>
+
+<rect x="900" y="700" width="490" height="28" rx="5"
+      fill="rgba(14,165,233,0.05)" stroke="rgba(14,165,233,0.2)" stroke-width="1"/>
+<text x="1145" y="718" fill="#0ea5e9" font-size="9" text-anchor="middle">
+  Stretched L2: VLAN 10 / VNI 100010 / RT 1:100010 / Subnet 192.168.10.0/24
+</text>
+
+<!-- Bottom label -->
+<text x="710" y="745" fill="#3d5a7a" font-size="8.5" text-anchor="middle" letter-spacing="0.08em">
+  cisco_n9kv · vrnetlab/cisco_n9kv:9300v-9.3.16 · containerlab multisite-vxlan
+</text>
+
+</svg>
+</div>
+</body>
+</html>

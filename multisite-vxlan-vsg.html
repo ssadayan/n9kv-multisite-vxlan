@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VXLAN EVPN Multisite Lab — VSG</title>
+
+    <!-- Fonts: Syne (display) + IBM Plex Sans (body) + JetBrains Mono (code) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES — Cisco-Teal dark theme
+           Inspired by NX-OS CLI + dark fabric topology tools
+        =========================================== */
+        :root {
+            --bg-primary:    #080e1a;
+            --bg-secondary:  #0d1525;
+            --bg-card:       #111c2e;
+            --bg-code:       #0a0f1a;
+
+            --accent-teal:   #00c9a7;
+            --accent-blue:   #0ea5e9;
+            --accent-orange: #f97316;
+            --accent-green:  #22c55e;
+            --accent-red:    #ef4444;
+            --accent-glow:   rgba(0,201,167,0.18);
+
+            --text-primary:  #e2e8f0;
+            --text-secondary:#7fa8c9;
+            --text-dim:      #3d5a7a;
+            --border:        rgba(0,201,167,0.15);
+
+            --font-display:  'Syne', sans-serif;
+            --font-body:     'IBM Plex Sans', sans-serif;
+            --font-mono:     'JetBrains Mono', monospace;
+
+            --ease-expo:     cubic-bezier(0.16, 1, 0.3, 1);
+
+            /* viewport-base.css tokens */
+            --title-size:    clamp(1.8rem, 5vw, 4.2rem);
+            --h2-size:       clamp(1.2rem, 3vw, 2.2rem);
+            --h3-size:       clamp(0.95rem, 2vw, 1.4rem);
+            --body-size:     clamp(0.72rem, 1.3vw, 1rem);
+            --small-size:    clamp(0.62rem, 0.95vw, 0.82rem);
+            --mono-size:     clamp(0.62rem, 1.05vw, 0.85rem);
+            --slide-padding: clamp(1.5rem, 4vw, 4.5rem);
+            --content-gap:   clamp(0.6rem, 1.8vw, 2rem);
+            --element-gap:   clamp(0.3rem, 0.9vw, 0.9rem);
+        }
+
+        /* ===========================================
+           RESET
+        =========================================== */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* ===========================================
+           VIEWPORT BASE CSS (mandatory)
+        =========================================== */
+        html, body { height: 100%; overflow-x: hidden; }
+        html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: var(--bg-primary);
+        }
+
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-height: 100%;
+            overflow: hidden;
+            padding: var(--slide-padding);
+        }
+
+        img, .image-container { max-width: 100%; max-height: min(50vh, 400px); object-fit: contain; }
+
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.75rem, 3vw, 2rem);
+                --content-gap:   clamp(0.35rem, 1.2vw, 0.9rem);
+                --title-size:    clamp(1.25rem, 4vw, 2.5rem);
+                --h2-size:       clamp(1rem, 2.5vw, 1.6rem);
+            }
+        }
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2.5vw, 1.4rem);
+                --content-gap:   clamp(0.25rem, 0.8vw, 0.6rem);
+                --title-size:    clamp(1.1rem, 3.5vw, 1.9rem);
+                --body-size:     clamp(0.65rem, 1.1vw, 0.88rem);
+            }
+            .nav-dots, .keyboard-hint, .decorative { display: none; }
+        }
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.4rem, 2vw, 1rem);
+                --title-size:    clamp(1rem, 3vw, 1.4rem);
+                --h2-size:       clamp(0.85rem, 2vw, 1.1rem);
+                --body-size:     clamp(0.6rem, 0.9vw, 0.78rem);
+            }
+        }
+        @media (max-width: 600px) {
+            :root { --title-size: clamp(1.3rem, 7vw, 2.5rem); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+            html { scroll-behavior: auto; }
+        }
+
+        /* ===========================================
+           GLOBAL ELEMENTS
+        =========================================== */
+        body {
+            font-family: var(--font-body);
+            color: var(--text-primary);
+            background: var(--bg-primary);
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            position: fixed;
+            top: 0; left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-teal), var(--accent-blue));
+            width: 0%;
+            z-index: 1000;
+            transition: width 0.3s var(--ease-expo);
+            box-shadow: 0 0 8px var(--accent-teal);
+        }
+
+        /* Nav dots */
+        .nav-dots {
+            position: fixed;
+            right: clamp(0.8rem, 2vw, 1.5rem);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(4px, 0.7vh, 8px);
+            z-index: 999;
+        }
+        .nav-dot {
+            width: clamp(4px, 0.6vw, 7px);
+            height: clamp(4px, 0.6vw, 7px);
+            border-radius: 50%;
+            background: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .nav-dot.active {
+            background: var(--accent-teal);
+            box-shadow: 0 0 6px var(--accent-teal);
+            transform: scale(1.3);
+        }
+
+        /* Slide counter badge */
+        .slide-badge {
+            position: absolute;
+            bottom: clamp(0.6rem, 1.5vh, 1.2rem);
+            right: clamp(1rem, 2vw, 2rem);
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--text-dim);
+            letter-spacing: 0.08em;
+        }
+
+        /* Grid background texture on all slides */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,201,167,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,201,167,0.025) 1px, transparent 1px);
+            background-size: 48px 48px;
+            pointer-events: none;
+        }
+
+        /* ===========================================
+           REVEAL ANIMATIONS
+        =========================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.65s var(--ease-expo),
+                        transform 0.65s var(--ease-expo);
+        }
+        .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+        .reveal:nth-child(1) { transition-delay: 0.05s; }
+        .reveal:nth-child(2) { transition-delay: 0.15s; }
+        .reveal:nth-child(3) { transition-delay: 0.25s; }
+        .reveal:nth-child(4) { transition-delay: 0.35s; }
+        .reveal:nth-child(5) { transition-delay: 0.42s; }
+        .reveal:nth-child(6) { transition-delay: 0.49s; }
+        .reveal:nth-child(7) { transition-delay: 0.55s; }
+
+        .reveal-left {
+            opacity: 0;
+            transform: translateX(-30px);
+            transition: opacity 0.65s var(--ease-expo),
+                        transform 0.65s var(--ease-expo);
+        }
+        .slide.visible .reveal-left { opacity: 1; transform: translateX(0); }
+
+        /* ===========================================
+           COMMON COMPONENTS
+        =========================================== */
+
+        /* Section label chip */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4em;
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-teal);
+            background: rgba(0,201,167,0.1);
+            border: 1px solid rgba(0,201,167,0.25);
+            padding: 0.25em 0.75em;
+            border-radius: 99px;
+            margin-bottom: var(--element-gap);
+        }
+        .chip.orange { color: var(--accent-orange); background: rgba(249,115,22,0.1); border-color: rgba(249,115,22,0.25); }
+        .chip.blue   { color: var(--accent-blue);   background: rgba(14,165,233,0.1);  border-color: rgba(14,165,233,0.25); }
+        .chip.green  { color: var(--accent-green);  background: rgba(34,197,94,0.1);   border-color: rgba(34,197,94,0.25); }
+
+        /* Slide headings */
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: var(--h2-size);
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.15;
+            margin-bottom: var(--content-gap);
+        }
+        .slide h2 span { color: var(--accent-teal); }
+
+        /* Bullet list */
+        .bullet-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: var(--element-gap);
+        }
+        .bullet-list li {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            padding-left: 1.4em;
+            position: relative;
+            line-height: 1.5;
+        }
+        .bullet-list li::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: var(--accent-teal);
+            font-size: 0.85em;
+            top: 0.05em;
+        }
+        .bullet-list li strong { color: var(--text-primary); font-weight: 600; }
+        .bullet-list li code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            color: var(--accent-orange);
+            background: rgba(249,115,22,0.1);
+            padding: 0.1em 0.4em;
+            border-radius: 4px;
+        }
+
+        /* Code block */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: clamp(0.7rem, 1.5vw, 1.2rem);
+            overflow: hidden;
+        }
+        .code-block pre {
+            font-family: var(--font-mono);
+            font-size: var(--mono-size);
+            color: var(--text-primary);
+            line-height: 1.6;
+            white-space: pre;
+        }
+        .code-block pre .kw  { color: var(--accent-blue); }
+        .code-block pre .val { color: var(--accent-orange); }
+        .code-block pre .cmt { color: #3d6a5a; }
+        .code-block pre .key { color: var(--accent-teal); }
+        .code-block pre .str { color: var(--accent-green); }
+        .code-block pre .num { color: #e879f9; }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--small-size);
+        }
+        .data-table th {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent-teal);
+            padding: clamp(0.3rem, 0.7vh, 0.6rem) clamp(0.4rem, 1vw, 0.9rem);
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-weight: 700;
+        }
+        .data-table td {
+            padding: clamp(0.25rem, 0.6vh, 0.5rem) clamp(0.4rem, 1vw, 0.9rem);
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            line-height: 1.4;
+        }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table td:first-child { color: var(--text-primary); font-weight: 500; }
+        .data-table .site1 { color: var(--accent-teal); }
+        .data-table .site2 { color: var(--accent-blue); }
+        .data-table .dci   { color: var(--accent-orange); }
+
+        /* Two-column layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--content-gap);
+            align-items: start;
+        }
+        @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+        /* Accent divider */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, var(--accent-teal), transparent);
+            margin: var(--element-gap) 0;
+            opacity: 0.4;
+        }
+
+        /* Step list (traffic flow) */
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--element-gap);
+        }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: clamp(0.5rem, 1vw, 1rem);
+        }
+        .step-num {
+            flex-shrink: 0;
+            width: clamp(1.2rem, 2.2vw, 1.8rem);
+            height: clamp(1.2rem, 2.2vw, 1.8rem);
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            font-weight: 700;
+            color: var(--bg-primary);
+        }
+        .step-text {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            line-height: 1.5;
+            padding-top: 0.1em;
+        }
+        .step-text strong { color: var(--text-primary); }
+        .step-text code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            color: var(--accent-orange);
+            background: rgba(249,115,22,0.08);
+            padding: 0.1em 0.35em;
+            border-radius: 3px;
+        }
+
+        /* Decision card */
+        .decision-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent-teal);
+            border-radius: 6px;
+            padding: clamp(0.5rem, 1.2vw, 1rem);
+        }
+        .decision-card h4 {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--accent-teal);
+            font-weight: 700;
+            margin-bottom: 0.3em;
+        }
+        .decision-card p {
+            font-size: var(--small-size);
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .decision-card p code {
+            font-family: var(--font-mono);
+            color: var(--accent-orange);
+            font-size: 0.9em;
+        }
+
+        /* ===========================================
+           SLIDE 1 — TITLE
+        =========================================== */
+        .title-slide {
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .title-slide::after {
+            content: '';
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: min(60vw, 700px);
+            height: min(60vw, 700px);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,201,167,0.07) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .title-slide .vsg-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5em;
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--accent-orange);
+            background: rgba(249,115,22,0.1);
+            border: 1px solid rgba(249,115,22,0.3);
+            padding: 0.3em 0.9em;
+            border-radius: 99px;
+            margin-bottom: clamp(0.8rem, 2vh, 1.6rem);
+        }
+        .title-slide h1 {
+            font-family: var(--font-display);
+            font-size: var(--title-size);
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--text-primary);
+            margin-bottom: clamp(0.5rem, 1.5vh, 1.2rem);
+            max-width: 14ch;
+        }
+        .title-slide h1 .hl { color: var(--accent-teal); }
+        .title-slide .subtitle {
+            font-size: var(--h3-size);
+            color: var(--text-secondary);
+            font-weight: 300;
+            max-width: 46ch;
+            line-height: 1.5;
+            margin-bottom: clamp(1rem, 3vh, 2.5rem);
+        }
+        .title-meta {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.6rem, 1.5vw, 1.5rem);
+            flex-wrap: wrap;
+        }
+        .title-meta .meta-pill {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 0.4em;
+        }
+        .title-meta .meta-pill span { color: var(--accent-teal); }
+        /* Decorative teal line accent */
+        .title-accent-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 30%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-teal), transparent);
+            box-shadow: 0 0 12px var(--accent-teal);
+        }
+
+        /* ===========================================
+           AGENDA SLIDE
+        =========================================== */
+        .agenda-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(0.4rem, 1vw, 0.9rem);
+        }
+        @media (max-width: 700px) { .agenda-grid { grid-template-columns: 1fr; } }
+        .agenda-item {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.5rem, 1vw, 1rem);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: clamp(0.5rem, 1.2vw, 1rem);
+        }
+        .agenda-num {
+            font-family: var(--font-mono);
+            font-size: clamp(1rem, 2.5vw, 1.8rem);
+            font-weight: 700;
+            color: var(--text-dim);
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .agenda-text {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        .agenda-text strong { color: var(--text-primary); display: block; font-size: 1.05em; }
+
+        /* ===========================================
+           TOPO DIAGRAM SLIDE
+        =========================================== */
+        .topo-diagram {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: clamp(0.7rem, 1.5vw, 1.2rem);
+            font-family: var(--font-mono);
+            font-size: var(--mono-size);
+            color: var(--text-secondary);
+            line-height: 1.7;
+            overflow: hidden;
+        }
+        .topo-diagram .s1 { color: var(--accent-teal); }
+        .topo-diagram .s2 { color: var(--accent-blue); }
+        .topo-diagram .dci-color { color: var(--accent-orange); }
+        .topo-diagram .srv-color { color: var(--accent-green); }
+
+        /* ===========================================
+           BGW CONFIG SLIDE
+        =========================================== */
+        .two-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--content-gap);
+            align-items: start;
+        }
+        @media (max-width: 700px) { .two-panel { grid-template-columns: 1fr; } }
+
+        .highlight-box {
+            background: rgba(0,201,167,0.05);
+            border: 1px solid rgba(0,201,167,0.2);
+            border-radius: 8px;
+            padding: clamp(0.6rem, 1.2vw, 1rem);
+        }
+        .highlight-box h4 {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--accent-teal);
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.5em;
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- Progress bar -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Navigation dots -->
+<nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
+
+<!-- ============================================================
+     SLIDE 1 — TITLE
+============================================================ -->
+<section class="slide title-slide" id="slide-1">
+    <div class="slide-content">
+        <div class="vsg-badge reveal">⬡ Virtual Study Group</div>
+        <h1 class="reveal">VXLAN <span class="hl">EVPN</span><br>Multisite Lab</h1>
+        <p class="subtitle reveal">Cisco Nexus 9kv + Containerlab — spineless two-site stretched L2 fabric with BGWs as Route Reflectors and dual DCI links</p>
+        <div class="title-meta reveal">
+            <div class="meta-pill">Platform <span>Containerlab</span></div>
+            <div class="meta-pill">NOS <span>NX-OS 9.3.16</span></div>
+            <div class="meta-pill">Nodes <span>8 × N9kv + 6 Linux</span></div>
+        </div>
+    </div>
+    <div class="title-accent-line"></div>
+    <div class="slide-badge">01 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 2 — AGENDA
+============================================================ -->
+<section class="slide" id="slide-2">
+    <div class="slide-content">
+        <div class="chip reveal">Agenda</div>
+        <h2 class="reveal">What We'll <span>Cover</span></h2>
+        <div class="agenda-grid reveal">
+            <div class="agenda-item">
+                <div class="agenda-num">01</div>
+                <div class="agenda-text"><strong>Multisite Fundamentals</strong>Problem, solution, BGW role</div>
+            </div>
+            <div class="agenda-item">
+                <div class="agenda-num">02</div>
+                <div class="agenda-text"><strong>Lab Architecture</strong>Topology, nodes, DCI link</div>
+            </div>
+            <div class="agenda-item">
+                <div class="agenda-num">03</div>
+                <div class="agenda-text"><strong>Underlay &amp; Overlay</strong>OSPF + iBGP EVPN per site</div>
+            </div>
+            <div class="agenda-item">
+                <div class="agenda-num">04</div>
+                <div class="agenda-text"><strong>BGW Deep Dive</strong>NX-OS multisite config</div>
+            </div>
+            <div class="agenda-item">
+                <div class="agenda-num">05</div>
+                <div class="agenda-text"><strong>Containerlab Topology</strong>YAML file + spin-up</div>
+            </div>
+            <div class="agenda-item">
+                <div class="agenda-num">06</div>
+                <div class="agenda-text"><strong>Verification &amp; Traffic Walk</strong>show commands + packet path</div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-badge">02 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 3 — WHAT IS VXLAN EVPN MULTISITE?
+============================================================ -->
+<section class="slide" id="slide-3">
+    <div class="slide-content">
+        <div class="chip orange reveal">Problem Statement</div>
+        <h2 class="reveal">Single-Site <span>EVPN</span> Doesn't Cross DCs</h2>
+        <ul class="bullet-list reveal">
+            <li><strong>Intra-site VXLAN EVPN</strong> works perfectly — VTEP-to-VTEP tunnels, iBGP EVPN control plane, ARP suppression</li>
+            <li><strong>The problem:</strong> each site has its own iBGP domain; routes and VTEPs don't cross site boundaries natively</li>
+            <li><strong>Multisite solution:</strong> introduce a <strong>Border Gateway (BGW)</strong> at each site edge</li>
+            <li>BGW <strong>re-originates</strong> EVPN Type-2/Type-5 routes between sites via inter-site eBGP</li>
+            <li>BGW <strong>re-encapsulates</strong> VXLAN traffic — inner VTEP stays local, outer VTEP = BGW multisite loopback</li>
+            <li><strong>Key NX-OS command:</strong> <code>evpn multisite border-gateway &lt;site-id&gt;</code></li>
+        </ul>
+    </div>
+    <div class="slide-badge">03 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 4 — LAB ARCHITECTURE
+============================================================ -->
+<section class="slide" id="slide-4">
+    <div class="slide-content">
+        <div class="chip reveal">Lab Architecture</div>
+        <h2 class="reveal">Two-Site <span>Topology</span></h2>
+        <div class="two-col reveal">
+            <div class="topo-diagram">
+<span class="s1">SITE 1  AS 65001</span>
+  <span class="s1">s1-bgw1</span> (RR) ──── <span class="s1">s1-bgw2</span> (RR)
+    │    ╲        ╱    │
+    │     ╲      ╱     │
+  <span class="s1">s1-leaf1</span>  ──  <span class="s1">s1-leaf2</span>
+    │  │           │
+ <span class="srv-color">srv1 srv5</span>       <span class="srv-color">srv2</span>
+    │                   │
+ <span class="dci-color">DCI-1 ───────────────┐</span> <span class="dci-color">172.16.0.0/30</span>
+ <span class="dci-color">DCI-2 ──────────────┐│</span> <span class="dci-color">172.16.1.0/30</span>
+                    ││
+<span class="s2">SITE 2  AS 65002</span>   ││
+  <span class="s2">s2-bgw1</span> (RR) ────┘│
+  <span class="s2">s2-bgw2</span> (RR) ─────┘
+    │    ╲        ╱    │
+  <span class="s2">s2-leaf1</span>  ──  <span class="s2">s2-leaf2</span>
+    │  │           │
+ <span class="srv-color">srv3 srv6</span>       <span class="srv-color">srv4</span>
+            </div>
+            <ul class="bullet-list">
+                <li><strong>8 N9kv nodes</strong> + 6 Linux servers</li>
+                <li>Per site: <strong>2 BGWs</strong> (RR + multisite) + <strong>2 Leaves</strong> — no spine layer</li>
+                <li><strong>Dual DCI:</strong> bgw1↔bgw1 (<code>172.16.0.0/30</code>) + bgw2↔bgw2 (<code>172.16.1.0/30</code>)</li>
+                <li>Stretched <strong>VLAN 10 / VNI 100010</strong> across both sites</li>
+                <li>Servers: <code>192.168.10.0/24</code>, same subnet across sites</li>
+                <li>Image: <code>vrnetlab/cisco_n9kv:9300v-9.3.16</code></li>
+            </ul>
+        </div>
+    </div>
+    <div class="slide-badge">04 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 5 — IP ADDRESSING PLAN
+============================================================ -->
+<section class="slide" id="slide-5">
+    <div class="slide-content">
+        <div class="chip blue reveal">Addressing Plan</div>
+        <h2 class="reveal"><span>IP</span> Addressing</h2>
+        <div class="reveal" style="overflow: hidden; max-height: 60vh;">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Node</th><th>lo0 (RID)</th><th>lo1 (NVE)</th><th>lo100 (Multisite)</th><th>Uplinks</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td class="site1">s1-spine1</td><td>10.1.0.1/32</td><td>—</td><td>—</td><td>10.1.1.1, 10.1.2.1, 10.1.3.1</td></tr>
+                    <tr><td class="site1">s1-spine2</td><td>10.1.0.2/32</td><td>—</td><td>—</td><td>10.1.4.1, 10.1.5.1, 10.1.6.1</td></tr>
+                    <tr><td class="site1">s1-leaf1</td><td>10.1.0.11/32</td><td>10.1.0.111/32</td><td>—</td><td>10.1.1.2, 10.1.4.2</td></tr>
+                    <tr><td class="site1">s1-leaf2</td><td>10.1.0.12/32</td><td>10.1.0.112/32</td><td>—</td><td>10.1.2.2, 10.1.5.2</td></tr>
+                    <tr><td class="site1">s1-bgw1</td><td>10.1.0.21/32</td><td>10.1.0.121/32</td><td>10.1.100.21/32</td><td>10.1.3.2, 10.1.6.2</td></tr>
+                    <tr><td class="site2">s2-spine1</td><td>10.2.0.1/32</td><td>—</td><td>—</td><td>10.2.1.1, 10.2.2.1, 10.2.3.1</td></tr>
+                    <tr><td class="site2">s2-spine2</td><td>10.2.0.2/32</td><td>—</td><td>—</td><td>10.2.4.1, 10.2.5.1, 10.2.6.1</td></tr>
+                    <tr><td class="site2">s2-leaf1</td><td>10.2.0.11/32</td><td>10.2.0.111/32</td><td>—</td><td>10.2.1.2, 10.2.4.2</td></tr>
+                    <tr><td class="site2">s2-leaf2</td><td>10.2.0.12/32</td><td>10.2.0.112/32</td><td>—</td><td>10.2.2.2, 10.2.5.2</td></tr>
+                    <tr><td class="site2">s2-bgw1</td><td>10.2.0.21/32</td><td>10.2.0.121/32</td><td>10.2.100.21/32</td><td>10.2.3.2, 10.2.6.2</td></tr>
+                    <tr><td class="dci">DCI link</td><td colspan="4">172.16.0.0/30 — s1-bgw1: .1  /  s2-bgw1: .2</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="slide-badge">05 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 6 — UNDERLAY: OSPF
+============================================================ -->
+<section class="slide" id="slide-6">
+    <div class="slide-content">
+        <div class="chip reveal">Layer 3 Underlay</div>
+        <h2 class="reveal">Underlay: <span>OSPF</span></h2>
+        <div class="two-col reveal">
+            <ul class="bullet-list">
+                <li>Process name: <code>UNDERLAY</code>, area <code>0.0.0.0</code></li>
+                <li>All fabric links: <code>ip ospf network point-to-point</code></li>
+                <li>MTU <strong>9150</strong> on all p2p links (VXLAN overhead)</li>
+                <li><code>loopback0</code> (RID) → in OSPF area 0</li>
+                <li><code>loopback1</code> (NVE VTEP) → in OSPF area 0</li>
+                <li><code>loopback100</code> (BGW multisite) → <strong>NOT in OSPF</strong>, reached via static route</li>
+                <li>DCI link → <strong>NOT in OSPF</strong> — isolated from site underlay</li>
+            </ul>
+            <div class="code-block">
+<pre><span class="cmt">! On every fabric node:</span>
+<span class="kw">router ospf</span> <span class="val">UNDERLAY</span>
+  <span class="kw">router-id</span> <span class="num">10.1.0.11</span>
+
+<span class="kw">interface</span> <span class="val">loopback0</span>
+  <span class="kw">ip router ospf</span> UNDERLAY area <span class="num">0.0.0.0</span>
+
+<span class="kw">interface</span> <span class="val">loopback1</span>
+  <span class="kw">ip router ospf</span> UNDERLAY area <span class="num">0.0.0.0</span>
+
+<span class="kw">interface</span> <span class="val">Ethernet1/1</span>
+  <span class="kw">mtu</span> <span class="num">9150</span>
+  <span class="kw">ip ospf network</span> <span class="val">point-to-point</span>
+  <span class="kw">ip router ospf</span> UNDERLAY area <span class="num">0.0.0.0</span></pre>
+            </div>
+        </div>
+    </div>
+    <div class="slide-badge">06 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 7 — OVERLAY: iBGP EVPN
+============================================================ -->
+<section class="slide" id="slide-7">
+    <div class="slide-content">
+        <div class="chip reveal">Layer 2 Overlay</div>
+        <h2 class="reveal">Overlay: <span>iBGP EVPN</span> per Site</h2>
+        <div class="two-col reveal">
+            <ul class="bullet-list">
+                <li>Each site is a <strong>self-contained iBGP EVPN domain</strong></li>
+                <li><strong>BGWs = Route Reflectors</strong> (no spine layer): <code>route-reflector-client</code> + <code>retain route-target all</code></li>
+                <li>Leaves = RR clients, peer with both BGWs via lo0 for redundancy</li>
+                <li>VLAN 10 → VNI <code>100010</code>, RT <code>1:100010</code> <em>shared across both sites</em></li>
+                <li>NVE source: <code>loopback1</code> (VTEP IP in OSPF)</li>
+                <li>ARP suppression + BGP ingress replication on all VTEPs</li>
+            </ul>
+            <div class="code-block">
+<pre><span class="cmt">! Leaf EVPN config:</span>
+<span class="kw">feature</span> <span class="val">nv overlay</span>
+<span class="kw">nv overlay evpn</span>
+
+<span class="kw">vlan</span> <span class="num">10</span>
+  <span class="kw">vn-segment</span> <span class="num">100010</span>
+
+<span class="kw">interface nve1</span>
+  <span class="kw">source-interface</span> <span class="val">loopback1</span>
+  <span class="kw">member vni</span> <span class="num">100010</span>
+    <span class="kw">ingress-replication</span> <span class="val">protocol bgp</span>
+    <span class="kw">suppress-arp</span>
+
+<span class="kw">evpn</span>
+  <span class="kw">vni</span> <span class="num">100010</span> <span class="val">l2</span>
+    <span class="kw">rd</span> <span class="val">auto</span>
+    <span class="kw">route-target import</span> <span class="num">1:100010</span>
+    <span class="kw">route-target export</span> <span class="num">1:100010</span></pre>
+            </div>
+        </div>
+    </div>
+    <div class="slide-badge">07 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 8 — MULTISITE BGW: CONCEPT
+============================================================ -->
+<section class="slide" id="slide-8">
+    <div class="slide-content">
+        <div class="chip orange reveal">Key Component</div>
+        <h2 class="reveal">The <span>Border Gateway</span> — What It Does</h2>
+        <ul class="bullet-list reveal">
+            <li><strong>Intra-site role:</strong> RR client — participates in site-1 iBGP EVPN like a leaf</li>
+            <li><strong>Inter-site role:</strong> eBGP EVPN speaker — peers with remote BGW via <code>loopback100</code></li>
+            <li><strong>Re-origination:</strong> Type-2 MAC/IP routes learned from site-1 leaves are re-advertised to site-2</li>
+            <li><strong>Re-encapsulation:</strong> inter-site VXLAN traffic uses BGW <code>loopback100</code> as outer VTEP, not leaf loopback</li>
+            <li><strong>Fabric tracking:</strong> BGW monitors spine connectivity — stops advertising if fabric goes down</li>
+            <li><strong>DCI tracking:</strong> BGW monitors DCI link — withdraws inter-site routes if DCI fails</li>
+        </ul>
+    </div>
+    <div class="slide-badge">08 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 9 — MULTISITE BGW: CONFIG
+============================================================ -->
+<section class="slide" id="slide-9">
+    <div class="slide-content">
+        <div class="chip orange reveal">NX-OS Config</div>
+        <h2 class="reveal">BGW <span>Configuration</span> Keys</h2>
+        <div class="two-col reveal">
+            <div class="code-block">
+<pre><span class="cmt">! Enable multisite (Site-ID unique per site)</span>
+<span class="kw">evpn multisite border-gateway</span> <span class="num">1</span>
+
+<span class="cmt">! Spine-facing (fabric-tracking)</span>
+<span class="kw">interface</span> <span class="val">Ethernet1/1</span>
+  <span class="kw">evpn multisite fabric-tracking</span>
+
+<span class="cmt">! DCI-facing (dci-tracking)</span>
+<span class="kw">interface</span> <span class="val">Ethernet1/5</span>
+  <span class="kw">evpn multisite dci-tracking</span>
+
+<span class="cmt">! NVE — multisite BGW loopback</span>
+<span class="kw">interface nve1</span>
+  <span class="kw">multisite border-gateway interface</span> <span class="val">loopback100</span>
+
+<span class="cmt">! BGP — advertise PIP</span>
+<span class="kw">router bgp</span> <span class="num">65001</span>
+  <span class="kw">address-family l2vpn evpn</span>
+    <span class="kw">advertise-pip</span></pre>
+            </div>
+            <ul class="bullet-list">
+                <li><code>border-gateway 1</code> — site-ID, unique per site domain</li>
+                <li><code>fabric-tracking</code> — on all spine-facing interfaces</li>
+                <li><code>dci-tracking</code> — on DCI interface only</li>
+                <li><code>loopback100</code> — multisite VTEP, <strong>not in OSPF</strong></li>
+                <li>Reachability via static route: <code>ip route 10.2.100.21/32 172.16.0.2</code></li>
+                <li><code>advertise-pip</code> — enables per-VTEP MAC advertisement for cross-site ARP suppression</li>
+            </ul>
+        </div>
+    </div>
+    <div class="slide-badge">09 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 10 — INTER-SITE eBGP
+============================================================ -->
+<section class="slide" id="slide-10">
+    <div class="slide-content">
+        <div class="chip blue reveal">Inter-Site Control Plane</div>
+        <h2 class="reveal">Inter-Site <span>eBGP</span> Session</h2>
+        <div class="two-col reveal">
+            <div class="code-block">
+<pre><span class="cmt">! s1-bgw1 — peer to s2-bgw1</span>
+<span class="kw">ip route</span> <span class="num">10.2.100.21/32</span> <span class="val">172.16.0.2</span>
+
+<span class="kw">router bgp</span> <span class="num">65001</span>
+  <span class="kw">neighbor</span> <span class="num">10.2.100.21</span>
+    <span class="kw">remote-as</span> <span class="num">65002</span>
+    <span class="kw">update-source</span> <span class="val">loopback100</span>
+    <span class="kw">ebgp-multihop</span> <span class="num">5</span>
+    <span class="kw">address-family l2vpn evpn</span>
+      <span class="kw">send-community extended</span>
+
+<span class="cmt">! s2-bgw1 — mirror config</span>
+<span class="kw">ip route</span> <span class="num">10.1.100.21/32</span> <span class="val">172.16.0.1</span>
+<span class="kw">neighbor</span> <span class="num">10.1.100.21</span>
+  <span class="kw">remote-as</span> <span class="num">65001</span>
+  <span class="kw">update-source</span> <span class="val">loopback100</span></pre>
+            </div>
+            <ul class="bullet-list">
+                <li>Peering on <strong>loopback100</strong> addresses — not DCI link IPs</li>
+                <li>Static routes provide loopback100 reachability via DCI: <code>10.x.100.21 → 172.16.0.x</code></li>
+                <li><code>ebgp-multihop 5</code> — loopbacks aren't directly connected</li>
+                <li><code>update-source loopback100</code> — BGP source must match the neighbor address</li>
+                <li>Same RT <code>1:100010</code> on both sites — routes accepted without rewriting</li>
+                <li>EVPN Type-2 routes cross sites carrying MAC + IP bindings</li>
+            </ul>
+        </div>
+    </div>
+    <div class="slide-badge">10 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 11 — CONTAINERLAB TOPOLOGY FILE
+============================================================ -->
+<section class="slide" id="slide-11">
+    <div class="slide-content">
+        <div class="chip green reveal">Containerlab</div>
+        <h2 class="reveal">Topology <span>File</span> — clab YAML</h2>
+        <div class="two-col reveal">
+            <div class="code-block">
+<pre><span class="kw">name</span>: <span class="str">multisite-vxlan</span>
+<span class="kw">topology</span>:
+  <span class="kw">kinds</span>:
+    <span class="kw">cisco_n9kv</span>:
+      <span class="kw">image</span>: <span class="str">vrnetlab/cisco_n9kv:9300v-9.3.16</span>
+    <span class="kw">linux</span>:
+      <span class="kw">image</span>: <span class="str">ghcr.io/hellt/network-multitool</span>
+  <span class="kw">nodes</span>:
+    <span class="kw">s1-bgw1</span>:
+      <span class="kw">kind</span>: <span class="str">cisco_n9kv</span>
+      <span class="kw">startup-config</span>: <span class="str">configs/s1-bgw1.cfg</span>
+    <span class="kw">s1-bgw2</span>:
+      <span class="kw">kind</span>: <span class="str">cisco_n9kv</span>
+      <span class="kw">startup-config</span>: <span class="str">configs/s1-bgw2.cfg</span>
+    <span class="cmt">    # s1-leaf1, s1-leaf2 | s2-bgw1, s2-bgw2, s2-leaf1, s2-leaf2</span>
+    <span class="kw">srv1</span>:
+      <span class="kw">kind</span>: <span class="str">linux</span>
+      <span class="kw">exec</span>:
+        - <span class="str">ip addr add 192.168.10.1/24 dev eth1</span>
+  <span class="kw">links</span>:
+    <span class="cmt">    # Site 1 — leaf-to-BGW (no spine)</span>
+    - <span class="kw">endpoints</span>: [<span class="str">"s1-bgw1:eth1"</span>, <span class="str">"s1-leaf1:eth1"</span>]
+    - <span class="kw">endpoints</span>: [<span class="str">"s1-bgw2:eth1"</span>, <span class="str">"s1-leaf1:eth2"</span>]
+    <span class="cmt">    # Dual DCI links</span>
+    - <span class="kw">endpoints</span>: [<span class="str">"s1-bgw1:eth5"</span>, <span class="str">"s2-bgw1:eth5"</span>]
+    - <span class="kw">endpoints</span>: [<span class="str">"s1-bgw2:eth5"</span>, <span class="str">"s2-bgw2:eth5"</span>]</pre>
+            </div>
+            <ul class="bullet-list">
+                <li>Deploy: <code>clab deploy -t multisite-vxlan.clab.yml</code></li>
+                <li>Destroy: <code>clab destroy -t multisite-vxlan.clab.yml</code></li>
+                <li><code>eth1/eth2</code> → <code>Ethernet1/1</code>, <code>Ethernet1/2</code> (leaf uplinks to both BGWs)</li>
+                <li><code>eth5</code> → <code>Ethernet1/5</code> (DCI — bgw1↔bgw1, bgw2↔bgw2)</li>
+                <li><code>eth10/eth11</code> → <code>Ethernet1/10</code>, <code>Ethernet1/11</code> (server access)</li>
+                <li>8 N9kv nodes × 10GB RAM = <strong>~80GB RAM</strong> required on host</li>
+            </ul>
+        </div>
+    </div>
+    <div class="slide-badge">11 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 12 — VERIFICATION COMMANDS
+============================================================ -->
+<section class="slide" id="slide-12">
+    <div class="slide-content">
+        <div class="chip green reveal">Verification</div>
+        <h2 class="reveal">Show <span>Commands</span></h2>
+        <div class="two-col reveal">
+            <div class="code-block">
+<pre><span class="cmt">-- BGP EVPN session status --</span>
+<span class="kw">show bgp l2vpn evpn summary</span>
+
+<span class="cmt">-- NVE peer table (VTEPs) --</span>
+<span class="kw">show nve peers</span>
+
+<span class="cmt">-- VNI state --</span>
+<span class="kw">show nve vni</span>
+
+<span class="cmt">-- EVPN route table --</span>
+<span class="kw">show bgp l2vpn evpn</span>
+
+<span class="cmt">-- MAC/IP table per VNI --</span>
+<span class="kw">show l2route evpn mac-ip all</span>
+
+<span class="cmt">-- Multisite BGW status --</span>
+<span class="kw">show bgp l2vpn evpn summary</span> <span class="val">| grep</span> <span class="str">65002</span></pre>
+            </div>
+            <div class="code-block">
+<pre><span class="cmt">-- Cross-site ping test --</span>
+<span class="cmt">-- from srv1 to srv3 --</span>
+
+<span class="kw">docker exec</span> <span class="str">clab-multisite-vxlan-srv1</span> \
+  <span class="val">ping</span> <span class="num">192.168.10.3</span> <span class="val">-c 5</span>
+
+<span class="cmt">-- Verify ARP suppression --</span>
+<span class="kw">show ip arp suppression-cache detail</span>
+
+<span class="cmt">-- NVE multisite peers --</span>
+<span class="kw">show nve multisite dci-links</span>
+<span class="kw">show nve multisite fabric-links</span></pre>
+            </div>
+        </div>
+    </div>
+    <div class="slide-badge">12 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 13 — TRAFFIC FLOW
+============================================================ -->
+<section class="slide" id="slide-13">
+    <div class="slide-content">
+        <div class="chip orange reveal">Packet Walk</div>
+        <h2 class="reveal">Cross-Site <span>Traffic Flow</span> — srv1 → srv3</h2>
+        <div class="step-list reveal">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-text"><strong>ARP:</strong> srv1 (<code>192.168.10.1</code>) ARPs for srv3 (<code>192.168.10.3</code>) — unknown MAC</div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-text"><strong>EVPN Type-2:</strong> s1-leaf1 learns srv3's MAC/IP via BGP from s1-bgw1, which received it from s2-bgw1</div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-text"><strong>ARP suppression:</strong> s1-leaf1 proxies ARP reply using the cached MAC — no flood across VXLAN</div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-text"><strong>VXLAN encap (intra-site):</strong> s1-leaf1 encapsulates frame → outer src VTEP = <code>10.1.0.111</code>, dst = <code>10.1.100.21</code> (s1-bgw1)</div>
+            </div>
+            <div class="step">
+                <div class="step-num">5</div>
+                <div class="step-text"><strong>BGW re-encap:</strong> s1-bgw1 strips outer header, re-encapsulates → outer src = <code>10.1.100.21</code>, dst = <code>10.2.100.21</code> (s2-bgw1)</div>
+            </div>
+            <div class="step">
+                <div class="step-num">6</div>
+                <div class="step-text"><strong>Site 2 delivery:</strong> s2-bgw1 decaps, re-encaps to s2-leaf1 (<code>10.2.0.111</code>), which delivers to srv3</div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-badge">13 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 14 — KEY DESIGN DECISIONS
+============================================================ -->
+<section class="slide" id="slide-14">
+    <div class="slide-content">
+        <div class="chip reveal">Architecture</div>
+        <h2 class="reveal">Key <span>Design Decisions</span></h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--element-gap);" class="reveal">
+            <div class="decision-card">
+                <h4>Spineless — BGWs as RRs</h4>
+                <p>BGWs serve dual roles: iBGP EVPN Route Reflectors for leaves <em>and</em> multisite border gateways. Eliminates the spine layer, reducing node count from 11 to 8 and saving ~20GB RAM in the lab.</p>
+            </div>
+            <div class="decision-card">
+                <h4>Dual DCI Links</h4>
+                <p>Two independent DCI paths — bgw1↔bgw1 (<code>172.16.0.0/30</code>) and bgw2↔bgw2 (<code>172.16.1.0/30</code>). Provides DCI redundancy; each BGW independently tracks its own DCI link.</p>
+            </div>
+            <div class="decision-card">
+                <h4>Shared Route Target</h4>
+                <p>Both sites use <code>1:100010</code> instead of <code>auto</code> RT — avoids <code>rewrite-evpn-rt-asn</code> complexity and ensures routes are accepted cross-site without transformation.</p>
+            </div>
+            <div class="decision-card">
+                <h4>MTU 9150 + Dedicated loopback100</h4>
+                <p>VXLAN overhead needs MTU ≥ 9050; 9150 adds headroom. BGW loopback100 (multisite VTEP) is kept out of OSPF — reachable only via static route over DCI, isolating multisite identity from underlay.</p>
+            </div>
+        </div>
+    </div>
+    <div class="slide-badge">14 / 15</div>
+</section>
+
+<!-- ============================================================
+     SLIDE 15 — RESOURCES
+============================================================ -->
+<section class="slide" id="slide-15">
+    <div class="slide-content">
+        <div class="chip reveal">References</div>
+        <h2 class="reveal">Resources &amp; <span>Further Reading</span></h2>
+        <ul class="bullet-list reveal">
+            <li><strong>Reference single-site lab:</strong> github.com/yakiimo-bsp/n9kv-evpn-vxlan-lab — single-site VXLAN EVPN with N9kv, OSPF underlay, spine RRs</li>
+            <li><strong>Containerlab docs:</strong> containerlab.dev — topology file reference, node kinds, vrnetlab integration</li>
+            <li><strong>Cisco VXLAN Multisite:</strong> Cisco Design Guide — VXLAN BGP EVPN Multi-Site (CVD)</li>
+            <li><strong>NX-OS VXLAN Config Guide:</strong> Cisco Nexus 9000 NX-OS VXLAN Configuration Guide, Release 9.3(x)</li>
+            <li><strong>vrnetlab N9kv:</strong> github.com/hellt/vrnetlab — build vrnetlab images for Nexus 9kv and other NOS platforms</li>
+            <li><strong>This lab files:</strong> <code>lab-examples/multisite-vxlan/</code> in the containerlab repo — clab YAML + all NX-OS startup configs</li>
+        </ul>
+        <div class="divider reveal"></div>
+        <p class="reveal" style="font-family: var(--font-mono); font-size: var(--small-size); color: var(--text-dim);">
+            clab deploy -t lab-examples/multisite-vxlan/multisite-vxlan.clab.yml
+        </p>
+    </div>
+    <div class="slide-badge">15 / 15</div>
+</section>
+
+<script>
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   Keyboard nav, scroll snap, IntersectionObserver,
+   progress bar, nav dots
+=========================================== */
+class SlidePresentation {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.totalSlides = this.slides.length;
+        this.currentIndex = 0;
+        this.isScrolling = false;
+
+        this.progressBar = document.getElementById('progressBar');
+        this.navDotsContainer = document.getElementById('navDots');
+
+        this.buildNavDots();
+        this.setupIntersectionObserver();
+        this.setupKeyboard();
+        this.setupWheel();
+        this.setupTouch();
+        this.updateProgress(0);
+    }
+
+    buildNavDots() {
+        this.slides.forEach((_, i) => {
+            const dot = document.createElement('button');
+            dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
+            dot.addEventListener('click', () => this.goToSlide(i));
+            this.navDotsContainer.appendChild(dot);
+        });
+        this.dots = this.navDotsContainer.querySelectorAll('.nav-dot');
+    }
+
+    setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    const idx = Array.from(this.slides).indexOf(entry.target);
+                    if (idx !== -1) this.onSlideChange(idx);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        this.slides.forEach(slide => observer.observe(slide));
+    }
+
+    onSlideChange(idx) {
+        this.currentIndex = idx;
+        this.updateProgress(idx);
+        this.dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+
+    updateProgress(idx) {
+        const pct = ((idx) / (this.totalSlides - 1)) * 100;
+        this.progressBar.style.width = pct + '%';
+    }
+
+    goToSlide(idx) {
+        idx = Math.max(0, Math.min(idx, this.totalSlides - 1));
+        this.slides[idx].scrollIntoView({ behavior: 'smooth' });
+    }
+
+    setupKeyboard() {
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowDown':
+                case 'ArrowRight':
+                case ' ':
+                case 'PageDown':
+                    e.preventDefault();
+                    this.goToSlide(this.currentIndex + 1);
+                    break;
+                case 'ArrowUp':
+                case 'ArrowLeft':
+                case 'PageUp':
+                    e.preventDefault();
+                    this.goToSlide(this.currentIndex - 1);
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    this.goToSlide(0);
+                    break;
+                case 'End':
+                    e.preventDefault();
+                    this.goToSlide(this.totalSlides - 1);
+                    break;
+            }
+        });
+    }
+
+    setupWheel() {
+        let cooldown = false;
+        document.addEventListener('wheel', (e) => {
+            if (cooldown) return;
+            cooldown = true;
+            setTimeout(() => cooldown = false, 700);
+            if (e.deltaY > 0) this.goToSlide(this.currentIndex + 1);
+            else              this.goToSlide(this.currentIndex - 1);
+        }, { passive: true });
+    }
+
+    setupTouch() {
+        let startY = 0;
+        document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', e => {
+            const dy = startY - e.changedTouches[0].clientY;
+            if (Math.abs(dy) > 50) {
+                if (dy > 0) this.goToSlide(this.currentIndex + 1);
+                else        this.goToSlide(this.currentIndex - 1);
+            }
+        }, { passive: true });
+    }
+}
+
+new SlidePresentation();
+</script>
+</body>
+</html>
